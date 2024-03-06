@@ -1,0 +1,605 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset='utf-8' />
+    <title>London Fire Brigade Records about Fire and Special Service</title>
+    <meta name='viewport' content='initial-scale=1,maximum-scale=1,user-scalable=no' />
+    <link href="https://api.mapbox.com/mapbox-gl-js/v3.0.1/mapbox-gl.css" rel="stylesheet">
+    <script src="https://api.mapbox.com/mapbox-gl-js/v3.0.1/mapbox-gl.js"></script>
+
+    <!--Load the chart libraries. Dimple is built on D3, and you need to also add D3-->
+    <!--加载了 Dimple.js 库，它是基于 D3.js 构建的图表库-->
+    <script charset="utf-8" src="https://d3js.org/d3.v4.min.js"></script>
+    <script charset="utf-8" src="https://cdnjs.cloudflare.com/ajax/libs/dimple/2.3.0/dimple.latest.min.js"></script>
+    
+<style>
+h3
+/* 定义了地图容器的样式，使其铺满整个页面，并且在页面上的位置是绝对定位的 */
+body { 
+    margin:0; 
+    padding:0; 
+    }
+#map {
+    position:absolute; 
+    top:0; 
+    bottom:0; 
+    width:100%; 
+    }
+
+/* 定义了信息面板内部的样式，包括背景颜色、阴影、边框和内边距等 */
+.map-overlay {
+    font: 15px/18px 'Helvetica Neue', Arial, Helvetica, sans-serif;
+    position: absolute;
+    width: 17%;
+    top: 0;
+    right: 0;
+    padding: 10px;
+    background-color: rgba(255, 255, 255, 0.8);
+}
+
+/* 定义了覆盖在地图上方的信息面板的样式，包括字体、位置和宽度等 */
+.map-overlay .map-overlay-inner {
+    background-color: #fff;
+    box-shadow:0 1px 2px rgba(0, 0, 0, 0.20);
+    border-radius: 3px;
+    padding: 10px;
+    margin-bottom: 10px;
+    width: 270px;
+    background-color: rgba(255, 255, 255, 0.8);
+}
+
+.map-overlay table {
+    border: none;
+    width: 100%;
+}
+
+.map-overlay h2 {
+    line-height: 22px;
+    display: block;
+    margin: 0 0 10px;
+}
+
+.map-overlay label {
+    font: 16px/20px 'Helvetica Neue', Arial, Helvetica, sans-serif;
+    vertical-align: bottom;
+    margin: 0;
+    padding: 0;
+}
+
+.map-overlay .legend .bar {
+    height: 10px;
+    width: 100%;
+    background: linear-gradient(to right, #FCA107, #7F3121);
+}
+
+.map-overlay input {
+    display: inline;
+    vertical-align: middle;
+    margin: 5px;
+    padding: 0;
+}
+
+.map-overlay p.credit {
+   margin: 5px 0 0 0;
+   padding: 0;
+}
+      
+
+/*mix chart*/    
+/*barchart*/        
+    #barchartContainer {
+        position: absolute;   
+        top: 15px;             
+        left: 10px;           
+        width: 440px;        
+        height: 320px;
+        z-index: 1000;
+        background-color: rgba(255, 255, 255, 0.8);
+    }
+    #barchartContainer p {
+        margin-left: 60px; 
+        margin-bottom: 5px; 
+        margin-top: 8px; 
+        padding: 0;
+    }
+    #barcharttitle {
+        font: bold 14px  Verdana, sans-serif;}
+     
+/*linechart*/    
+    #linechartContainer {
+        position: absolute;   
+        bottom: 10px;      
+        left: 10px;          
+        width: 440px;         
+        height: 285px;
+        z-index: 1000;
+        background-color: rgba(255, 255, 255, 0.8);
+    }
+    #linechartContainer p {
+        margin-left: 60px; 
+        margin-bottom: 5px; 
+        margin-top: 5px; 
+        padding: 0;
+    }
+    #linecharttitle {
+        font: bold 14px  Verdana, sans-serif;
+    }
+        
+    
+    </style>
+</head>
+    
+<body>
+<!--chart -->
+<!--barchart-->
+
+<div id="barchartContainer">
+    <p id="barcharttitle">Fire calls in different borough (Top20)</p>
+    <p id="chartsubhead" style="font-size: 13px">London Fire Brigade Incident Records. 2023</p>
+</div>
+
+<!--linechart-->
+    
+<div id="linechartContainer">
+     
+    <!-- 图表的主标题，初始显示一个占位符文本 -->
+    <p id="linecharttitle">Chart title is here</p>
+    <!-- 图表的副标题，显示数据来源和时间范围 -->
+    <p id="chartsubhead" style="font-size: 13px">Fire calls 2018-2023. LFB Incident Records.</p>
+    <!-- 下拉菜单，用于选择不同的区域 -->
+    <p><select id="BoroughMenu"><option>Change Borough Here:</option></select></p>
+
+</div>        
+      
+    
+<!--main map -->
+<div id='map'></div>
+
+<div class='map-overlay'>
+    <div class='map-overlay-inner'style="height: 20px">
+        <h2 id="laname" style="font-size: 20px;">Hover over a local authority</h2>
+	</div>
+    <div class='map-overlay-inner'>
+        <h2 id="Panal" Style="font-size: 20px">London Fire and Special Service Calls Density 2023</h2>
+		<table><tr><td>
+  		<input type="radio" name="layers" id="layer1" value="Fire"checked><label>Fire &nbsp; &nbsp;</label>
+  		<input type="radio" name="layers" id="layer2" value="Special Service"><label>Special Service </label>
+         </td>
+         </tr>
+         <tr><td><p class="boroughfly">Zoom To:</p>
+             <a href="#" class="boroughlink" id="bark">Barking And dagenham</a> &nbsp;
+         </td></tr>
+         <tr><td>
+             <a href="#" class="boroughlink" id="barn">Barnet</a> &nbsp;
+             <a href="#" class="boroughlink" id="bexl">Bexley</a> &nbsp;
+             <a href="#" class="boroughlink" id="bren">Brent</a> 
+         </td></tr>
+         <tr><td>
+             <a href="#" class="boroughlink" id="brom">Bromley</a> &nbsp;
+             <a href="#" class="boroughlink" id="camd">Camden</a>
+         </td></tr>
+         <tr><td>
+             <a href="#" class="boroughlink" id="city">City Of london</a> &nbsp;
+             <a href="#" class="boroughlink" id="croy">Croydon</a>
+         </td></tr>
+         <tr><td>
+             <a href="#" class="boroughlink" id="eali">Ealing</a> &nbsp;
+             <a href="#" class="boroughlink" id="enfi">Enfield</a>
+         </td></tr>
+         <tr><td>
+             <a href="#" class="boroughlink" id="gree">Greenwich</a> &nbsp;
+             <a href="#" class="boroughlink" id="hack">Hackney</a>
+         </td></tr>
+         <tr><td>
+             <a href="#" class="boroughlink" id="hamm">Hammersmith And fulham</a>
+         </td></tr>
+         <tr><td>
+             <a href="#" class="boroughlink" id="hari">Haringey</a> &nbsp;
+             <a href="#" class="boroughlink" id="harr">Harrow</a> 
+         </td></tr>
+         <tr><td>
+             <a href="#" class="boroughlink" id="have">Havering</a> &nbsp;
+             <a href="#" class="boroughlink" id="hill">Hillingdon</a>
+         </td></tr>
+         <tr><td>
+             <a href="#" class="boroughlink" id="houn">Hounslow</a> &nbsp;
+             <a href="#" class="boroughlink" id="isli">Islington</a> 
+         </td></tr>
+         <tr><td>
+             <a href="#" class="boroughlink" id="kens">Kensington And chelsea</a>
+         </td></tr>
+         <tr><td>
+             <a href="#" class="boroughlink" id="king">Kingston Upon thames</a> 
+         </td></tr>      
+         <tr><td>
+             <a href="#" class="boroughlink" id="lamb">Lambeth</a> &nbsp;
+             <a href="#" class="boroughlink" id="lewi">Lewisham</a> &nbsp;
+             <a href="#" class="boroughlink" id="mert">Merton</a> 
+         </td></tr>
+         <tr><td>
+             <a href="#" class="boroughlink" id="newh">Newham</a> &nbsp;
+             <a href="#" class="boroughlink" id="redb">Redbridge</a>
+         </td></tr>
+         <tr><td>
+             <a href="#" class="boroughlink" id="rich">Richmond Upon thames</a> 
+         </td></tr>
+         <tr><td>
+             <a href="#" class="boroughlink" id="sout">Southwark</a> &nbsp;
+             <a href="#" class="boroughlink" id="sutt">Sutton</a> 
+         </td></tr>
+         <tr><td>
+             <a href="#" class="boroughlink" id="towe">Tower Hamlets</a> &nbsp;
+             <a href="#" class="boroughlink" id="walt">Waltham Forest</a>
+         </td></tr>
+         <tr><td>
+             <a href="#" class="boroughlink" id="wand">Wandsworth</a> &nbsp;
+             <a href="#" class="boroughlink" id="west">Westminster</a> 
+         </td></tr>
+         <tr><td>
+             <a href="#" class="boroughlink" id="london">Borough of London</a>
+         </td></tr>
+         </table>
+         <p class="credit">Data: LFB Incident data 2023. Cartography: <a href="http://citygeographics.org">citygeographics</a>.</p>
+        </div>
+</div>
+
+
+
+
+<script>
+// mixchart
+d3.csv("barchart.csv", function(barBoroughData) {
+            
+            console.log(barBoroughData);
+            console.log(barBoroughData[1]);
+          
+            var svg = dimple.newSvg("#barchartContainer", 840, 440); 
+            //创建一个新的 SVG 元素，并将其绑定到具有 ID 为 "chartContainer" 的 div 元素上，设置 SVG 的宽度为 840 像素，高度为 440 像素。
+          
+            var barChart = new dimple.chart(svg, barBoroughData);  // 使用 Dimple.js 创建一个图表，将加载的 CSV 数据传递给图表
+            barChart.setBounds(60, 10, 350, 150);            // 设置图表在 SVG 容器中的位置和大小
+
+            barChart.defaultColors = [                       // 设置图表的默认颜色
+                new dimple.color("#54aae3")
+            ];
+
+
+            var x = barChart.addCategoryAxis("x", "Borough");  // 定义图表的 x 轴，这里使用城市名称作为分类轴
+
+            var y = barChart.addMeasureAxis("y", "c2023");    // 定义图表的 y 轴，这里使用人口数据作为度量轴
+            y.title = "Calls of Fire in 2023";          // 设置 y 轴标题
+
+            var s = barChart.addSeries(null, dimple.plot.bar); // 添加一个柱状图系列
+
+            barChart.draw(500); // 绘制图表，500 表示动画延迟的毫秒数
+
+            svg.selectAll("path.domain").style("stroke", "#CCC"); // 修改图表的网格线颜色
+            svg.selectAll("g.tick line").style("stroke", "#CCC");
+
+      });
+
+//linechart
+ 
+      d3.csv("chart.csv", function(lineBoroughData) {  
+          
+        var chartdata;  // 声明一个变量，用于存储图表数据
+          
+        var boroughMenu = document.getElementById("BoroughMenu");   // 获取下拉菜单元素
+     
+        // 遍历加载的 CSV 数据，并将城市名称添加到下拉菜单中
+        for(var i = 0; i < lineBoroughData.length; i++) {            
+            var el = document.createElement("option");
+            el.textContent = lineBoroughData[i].Borough;
+            el.value = lineBoroughData[i].Index;
+            boroughMenu.appendChild(el);
+            }       
+        
+        // 设置图表数据函数，根据索引设置对应城市的数据
+        function SetlineBoroughData(index) {   
+          
+                console.log(lineBoroughData[index]); // 在控制台中打印所选城市的数据
+
+                // 更新图表标题为所选城市的名称
+                document.getElementById("linecharttitle").innerHTML = lineBoroughData[index].Borough;
+
+                // 构建图表数据，将城市的人口数据以年份为键值存入数组中
+                chartdata = [
+                  { "Borough":"Hist","Year":"2018","Count":(lineBoroughData[index].c2018) },
+                  { "Borough":"Hist","Year":"2019","Count":(lineBoroughData[index].c2019) },
+                  { "Borough":"Hist","Year":"2020","Count":(lineBoroughData[index].c2020) },
+                  { "Borough":"Hist","Year":"2021","Count":(lineBoroughData[index].c2021) },
+                  { "Borough":"Hist","Year":"2022","Count":(lineBoroughData[index].c2022) },
+                  { "Borough":"Hist","Year":"2023","Count":(lineBoroughData[index].c2023) }
+                ];
+
+        }
+        
+        // 初始化图表数据为第一个城市的数据
+        SetlineBoroughData(0);
+        
+        // 创建 SVG 元素作为图表容器，并设置其大小
+        var svg = dimple.newSvg("#linechartContainer", 500, 300); 
+        
+        // 创建图表，并设置图表的基本属性    
+        var lineChart = new dimple.chart(svg, chartdata);  // Create the chart
+        lineChart.setBounds(60, 15, 350, 150);            // Set the chart bounds within the svg container
+
+        lineChart.defaultColors = [
+            new dimple.color("#54aae3"),
+            new dimple.color("#54aae3")
+        ];
+
+        // 添加 x 轴和 y 轴，并设置其属性    
+        var x = lineChart.addTimeAxis("x", "Year", "%Y", "%Y");  
+        x.timeInterval = 1;  
+
+        var y = lineChart.addMeasureAxis("y", "Count"); // Define the y axis
+        y.ticks = 6;
+          
+        // 添加系列并绘制图表
+        var s = lineChart.addSeries("Borough", dimple.plot.line);
+        s.lineMarkers = true;
+        //s.interpolation = "cardinal";
+
+        lineChart.draw(500); // Draw the chart. The number is the animation delay in miliseconds
+
+        // 修改图表的样式  
+        svg.selectAll("path.dimple-proj").style("stroke-dasharray", "2"); // Some minor stying changes using the svg selectAll statement. Make the projected data a dashed line and the grid colour lighter.
+        svg.selectAll("path.domain").style("stroke", "#CCC");
+        svg.selectAll("g.tick line").style("stroke", "#CCC");
+
+        // 监听下拉菜单的变化事件，当用户选择不同的城市时更新图表数据
+        document.getElementById("BoroughMenu").onchange = function() {    // This is the event listener that runs when the user changes the menu
+           var selectedIndex = document.getElementById("BoroughMenu").value;
+           console.log(selectedIndex);
+           SetlineBoroughData(parseInt(selectedIndex,10));   // Run the function that will update chartdata with the user selected city
+            
+           svg.selectAll(".dimple-marker,.dimple-marker-back").remove(); 
+            
+           lineChart.data = chartdata; // 更新图表数据 Update the chart with the new chartdata
+           lineChart.draw(500);
+         }          
+          
+      });  
+    
+ 
+    
+// mainmap
+
+    mapboxgl.accessToken = 'pk.eyJ1Ijoid2VuaGFveHUiLCJhIjoiY2xyN3I5b2wxMm5hdjJzcG5hYWlicWZkeSJ9.siN8xzMmAWXiGAUY2NcC4g'; // Put your Mapbox Public Access token here
+
+    // Load a new map in the 'map' HTML div
+    var map = new mapboxgl.Map({
+    container: 'map', // container id
+    style: 'mapbox://styles/wenhaoxu/clsyzsce100eg01mehyxjaocj', // map background layer location 设置了地图的初始中心位置
+    center: [-0.1102, 51.5149], // starting position [lng, lat]
+    zoom: 11, // starting zoom 设置了地图的初始缩放级别
+    pitch: 45 // tilt of the viewpoint in degrees 设置了地图视角的倾斜角度
+    });
+
+
+    map.on('load', function() {
+      // Set global light properties which influence 3D layer shadows
+      map.setLight({color: "#fff", intensity: 0.15, position: [1.15, 210, 30]});
+      // Add standard navigation control
+      map.addControl(new mapboxgl.NavigationControl());
+
+    // Load the 3D employment hexagon layer as a fill-extrusion type
+      map.addLayer({
+        id: 'Specialservice_Layer',
+        type: 'fill-extrusion',
+        source: {
+          type: 'vector',
+          url: 'mapbox://wenhaoxu.8wvp2ak7' 
+        },
+        'source-layer': 'ss_count150-ar5t8y', 
+        paint: {
+            'fill-extrusion-color': {
+                property: 'count',
+                type: 'exponential',
+                stops: [
+                    [0, '#d6f5ff'],
+                    [2, '#69cbf5'],
+                    [5, '#2e96dc'],
+                    [20, '#00479e']]
+            },
+            'fill-extrusion-height': ['*', ['get', 'count'], 80] ,  //expression that controls the extrusion height based on employment attribute Emp2011
+            'fill-extrusion-opacity': 0,
+            'fill-extrusion-opacity-transition': {  //Opacity transition adds a delay when changing the opacity for a smooth layer change effect
+                 duration: 1000,
+                 delay: 0
+             }
+            }
+      });
+        
+    // Load the 3D employment hexagon layer as a fill-extrusion type
+      map.addLayer({
+        id: 'Fire_Layer',
+        type: 'fill-extrusion',
+        source: {
+          type: 'vector',
+          url: 'mapbox://wenhaoxu.at68ep9k' 
+        },
+        'source-layer': 'fire_count150-chbbgw',
+        paint: {
+            'fill-extrusion-color': {
+                property: 'count',
+                type: 'exponential',
+                stops: [
+                    [2, '#FFB6C1'],
+                    [4, '#FA8072'],
+                    [8, '#FF5050'],
+                    [12, '#EE3B3B'],
+                    [16, '#CD3333'],
+                    [24, '#8B2323']]
+            },
+            'fill-extrusion-height': ['*', ['get', 'count'], 120] ,  //expression that controls the extrusion height based on employment attribute Emp2011
+            'fill-extrusion-opacity': 0.95,
+            'fill-extrusion-opacity-transition': {  //Opacity transition adds a delay when changing the opacity for a smooth layer change effect
+                 duration: 1000,
+                 delay: 0
+             }
+            }
+      });
+  
+
+
+        
+    map.addLayer({                  //Add the fill layer. It is not visible (opacity 0) and is used only as the basis of the hover selection
+            id: 'LocalAuthorities',
+            type: 'fill',
+            source: {
+              type: 'vector',
+              url: 'mapbox://duncan2001.3lm7j96x' 
+            },
+            'source-layer': 'GB_LocalAuth_3-d0941q', 
+            'layout': {
+                'visibility': 'visible'
+            },
+            paint: {
+                'fill-color': '#fff',
+                'fill-opacity': 0
+                }
+          });
+
+// Add the label layer
+	map.addLayer({
+		'id': 'labels',
+		'type': 'symbol',
+        source: {
+          type: 'vector',
+          url: 'mapbox://wenhaoxu.3i22c0l4' // Your Mapbox tileset Map ID
+        },
+		'source-layer': 'Borough-7ytint', // name of tilesets
+		//定义图层的布局属性
+        'layout': {
+			'text-field': '{Borough}',
+			'text-font': ['Open Sans Bold', 'Arial Unicode MS Bold'],
+			'text-size': 14
+		},
+		'paint': {
+			'text-color': 'rgba(0,0,0,0.8)',
+			'text-halo-color': '#fff',
+			'text-halo-width': 1
+		}
+	});        
+        
+        
+     map.addLayer({                  // Add the line highlight layer. This layer has a filter, which initially is empty.
+            id: 'lahighlight',
+            type: 'line',
+            source: {
+              type: 'vector',
+              url: 'mapbox://duncan2001.3lm7j96x' 
+            },
+            'source-layer': 'GB_LocalAuth_3-d0941q', 
+            'layout': {
+                'visibility': 'visible'
+            },
+            paint: {
+                'line-color': '#999999',
+                'line-width': 4
+                },
+            filter: ['==','name','empty']
+          });
+        
+        //Event listener for layer switch
+        document.getElementById("layer1").addEventListener("click", function(){
+            map.setPaintProperty('Fire_Layer','fill-extrusion-opacity',0.95);
+            map.setPaintProperty('Specialservice_Layer','fill-extrusion-opacity',0);
+        });
+ 
+        document.getElementById("layer2").addEventListener("click", function(){
+            map.setPaintProperty('Fire_Layer','fill-extrusion-opacity',0);
+            map.setPaintProperty('Specialservice_Layer','fill-extrusion-opacity',0.95);
+        });
+
+
+        //Event listener for the zoom to buttons created using a for loop and switch case statement to set lat and long
+        var x = document.getElementsByClassName('boroughlink');
+        var i;
+		  for (i = 0; i < x.length; i++) {
+			x[i].addEventListener('click', function(e) {
+
+				var lat,long;
+
+				switch(e.target.id) {
+					case "bark": long= 0.1308; lat=51.5411; break;
+					case "barn": long=-0.2109; lat=51.6261; break;
+					case "bexl": long= 0.1496; lat=51.4406; break;
+					case "bren": long=-0.2646; lat=51.5601; break;
+					case "brom": long= 0.0288; lat=51.3963; break;
+					case "camd": long=-0.1470; lat=51.5403; break;
+                    case "city": long=-0.0902; lat=51.5149; break;
+					case "croy": long=-0.0826; lat=51.3783; break;
+					case "eali": long=-0.3057; lat=51.5108; break;
+					case "enfi": long=-0.0734; lat=51.6661; break;
+					case "gree": long= 0.0015; lat=51.4842; break;
+                    case "hack": long=-0.0615; lat=51.5518; break;
+					case "hamm": long=-0.2209; lat=51.4949; break;    
+                    case "hari": long=-0.1084; lat=51.5915; break;
+					case "harr": long=-0.3383; lat=51.5866; break;
+					case "have": long= 0.2271; lat=51.5702; break;
+					case "hill": long=-0.4397; lat=51.5458; break;
+					case "houn": long=-0.3822; lat=51.4765; break;
+					case "isli": long=-0.1055; lat=51.5509; break;    
+                    case "kens": long=-0.1888; lat=51.4965; break;
+					case "king": long=-0.2890; lat=51.4134; break;
+					case "lamb": long=-0.1181; lat=51.4479; break;
+					case "lewi": long=-0.0101; lat=51.4605; break;
+					case "mert": long=-0.1964; lat=51.4078; break;
+					case "newh": long= 0.0302; lat=51.5294; break;
+                    case "redb": long= 0.0763; lat=51.5814; break;
+					case "rich": long=-0.2917; lat=51.4491; break;
+					case "sout": long=-0.0732; lat=51.4712; break;    
+                    case "sutt": long=-0.1989; lat=51.3624; break;
+					case "towe": long=-0.0355; lat=51.5212; break;
+					case "walt": long=-0.0097; lat=51.5956; break;
+					case "wand": long=-0.1922; lat=51.4582; break;
+					case "west": long=-0.1312; lat=51.4963; break;
+                    case "london":long=-0.0902; lat=51.5149; break;
+                }
+
+				map.flyTo({
+					center: [long,lat],
+					zoom: 12,
+					speed: 0.8,
+					pitch: 50
+					});
+			});
+		}
+
+        
+        
+        
+        map.on('mousemove', function(e) {       // This is the main event listner which is triggered when the mouse moves
+          var la = map.queryRenderedFeatures(e.point, {   // This queries whether the mouse is over an object in the LocalAuthorities layer
+            layers: ['LocalAuthorities']
+          });
+
+
+        if (la.length==1) {   // This if statement is run when the mouse is over a local authority
+
+        map.setFilter('lahighlight', ['==','name',la[0].properties.name]);  // Filter the highlight layer to show the local authority outline
+        console.log(la[0].properties.name);
+        document.getElementById('laname').innerHTML = la[0].properties.name; // Change the name in the top left box to show the local authority name
+        console.log(la[0].id);
+        console.log(la);
+
+        } else {
+        map.setFilter('lahighlight', ['==','name','null']);
+        console.log('No features');
+        document.getElementById('laname').innerHTML = "Hover over a local authority";
+        }
+
+
+        });
+        
+        
+        
+});
+
+</script>
+
+</body>
+</html>
